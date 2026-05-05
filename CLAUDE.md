@@ -15,10 +15,13 @@ Marketing site: https://www.sentinelhr.com.au
 
 ## Tech stack
 
-- Next.js 15 (App Router) + TypeScript
-- Tailwind CSS
-- Supabase — Postgres, Auth, Storage (for document uploads)
-- ESLint; package manager and Tailwind major version TBD
+- Next.js 16 (App Router) + TypeScript, Turbopack for dev
+- Tailwind CSS v3
+- shadcn/ui for accessible primitives (button, input, label, card, table to start)
+- Supabase — Postgres, Auth, Storage (for document uploads); `@supabase/supabase-js` + `@supabase/ssr`
+- npm as package manager; ESLint + Prettier (Prettier integrated via `eslint-config-prettier`)
+
+> Note: original spec said Next.js 15. Updated to 16 (current stable as of scaffold) on Mthompson's call. Next.js 16 has breaking changes from prior major versions — per the scaffold's own AGENTS.md note (since removed), refer to `node_modules/next/dist/docs/` for current conventions before relying on training-data knowledge.
 
 ## Domain context
 

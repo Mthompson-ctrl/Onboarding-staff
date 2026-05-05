@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Navy #0A2342 — Sentinel HR primary action colour */
+    --primary: 213 74% 15%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Teal #0D9488 — Sentinel HR accent colour */
+    --accent: 175 84% 32%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 213 74% 15%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 213 74% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 213 74% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 213 74% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 213 60% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 213 50% 15%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 213 50% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 175 70% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 213 50% 18%;
+    --input: 213 50% 18%;
+    --ring: 175 84% 32%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
