@@ -120,9 +120,18 @@ Multi-tenant onboarding schema lives in Supabase. Migration files in `supabase/m
 - Notifications/reminders (e.g. "First Aid expiring in 30 days") — query-driven for now via the `documents_expiry_idx` partial index.
 - Two-eyes verification — single-step `verified_by` for v1; promotable to a verifications table later.
 
+## Migration workflow
+
+- Migrations live in `supabase/migrations/` with timestamp-prefixed filenames (`YYYYMMDDhhmmss_name.sql`).
+- We run migrations **directly against the dev Supabase project as we write them**, via the dashboard SQL Editor. Developer review happens at handover / PR review, not per-migration.
+- The Supabase project at `bdmcxciktsjqonyxnnen` is **dev-only**; production will be a separate project.
+- Migration files must remain correct against a fresh database. If the dev project drifts (e.g. a column already exists from an earlier ad-hoc edit), reconcile dev to match the file — don't patch the file to match drift.
+
 ## Current focus
 
 _Update this as we go._
 
-- Database schema designed; migration files written in `supabase/migrations/` (awaiting developer review before applying to Supabase project).
-- Pending: initial project scaffold (Next.js 15, Tailwind, Supabase client libs).
+- Schema is live in the dev Supabase project. Three migrations applied: initial schema (`20260505000001`), RLS policies (`20260505000002`), enquiry-form additions (`20260506000001`).
+- Project scaffold landed: Next.js 16 + Tailwind v3 + shadcn primitives + Supabase server/client helpers.
+- Social Plus pilot organisation seeded (slug `social-plus`, id `c1d9cf17-3f1c-4a13-aca6-d95fafed3397`).
+- Next: public enquiry form at `/enquire` + server-side `/api/enquiries` route inserting into `leads` via service role.
