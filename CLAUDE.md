@@ -134,4 +134,5 @@ _Update this as we go._
 - Schema is live in the dev Supabase project. Three migrations applied: initial schema (`20260505000001`), RLS policies (`20260505000002`), enquiry-form additions (`20260506000001`).
 - Project scaffold landed: Next.js 16 + Tailwind v3 + shadcn primitives + Supabase server/client helpers.
 - Social Plus pilot organisation seeded (slug `social-plus`, id `c1d9cf17-3f1c-4a13-aca6-d95fafed3397`).
-- Next: public enquiry form at `/enquire` + server-side `/api/enquiries` route inserting into `leads` via service role.
+- Public enquiry form at `/enquire` shipped and verified end-to-end. Submits via `/api/enquiries` (service-role insert, honeypot, slug-pinned org lookup); audit trigger captures every submission as `actor_type='system'`. Validation schema in `src/lib/validation/enquiry.ts` is shared between client and server.
+- Next: candidate portal scaffolding. Manual SQL seeds for admin membership + a test candidate first; the HR invitation flow is deferred to a later session.
