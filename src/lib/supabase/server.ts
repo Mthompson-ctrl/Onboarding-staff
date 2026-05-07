@@ -18,8 +18,8 @@ export async function createClient() {
               cookieStore.set(name, value, options),
             );
           } catch {
-            // Server Components can't set cookies. Safe to ignore here — tokens
-            // are refreshed via a Next.js middleware (to be added separately).
+            // Server Components can't set cookies. Safe to ignore here —
+            // tokens are refreshed via the Next.js middleware.
           }
         },
       },

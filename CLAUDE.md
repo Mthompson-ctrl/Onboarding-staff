@@ -106,6 +106,7 @@ Multi-tenant onboarding schema lives in Supabase. Migration files in `supabase/m
 - **Consent fields (`privacy_consent_at`, `terms_accepted_at`) are System-only.** Set once via a server-side consent endpoint; never updated. Withdrawal of consent (if needed) will be modelled separately.
 - **`candidates.email` syncs from `auth.users.email`** via an `AFTER UPDATE OF email ON auth.users` trigger. Email changes go through the Supabase Auth flow only; the trigger keeps `candidates.email` aligned, and the audit_trigger captures the change.
 - **Migration caveat for the email-sync trigger.** The trigger attaches to `auth.users`, which lives in Supabase's managed `auth` schema. Creating it requires `postgres`-role privileges. The Supabase CLI (`supabase db push` / `supabase migration up`) and the dashboard SQL editor both run as `postgres` and apply the trigger cleanly. If a hosted-plan restriction blocks writes to the `auth` schema, fall back to performing the email sync in app code: when Supabase Auth completes an email change, the server route updates `candidates.email` for matching `user_id`. Drop the trigger if going that route.
+- **Auth user deletions cascade `SET NULL` on `candidates.user_id`** (verified via `pg_constraint`: `confdeltype = 'n'` on `candidates_user_id_fkey`). However, an orphaned `user_id` — a UUID that no longer exists in `auth.users` but didn't become orphaned through a real `DELETE` (e.g. dashboard mishap, manual SQL, or seeding against an auth user that was never persisted) — won't be nullified, and there's no query-time integrity check. If a candidate's `user_id` is stale, fix it with `UPDATE candidates SET user_id = '<correct-uuid>' WHERE id = '<candidate-id>'`.
 
 **Audit / PII handling**
 
@@ -113,6 +114,16 @@ Multi-tenant onboarding schema lives in Supabase. Migration files in `supabase/m
 - RLS on `audit_log` is **admin-only** for SELECT. This is doubly important because of the PII content.
 - **Right-to-be-forgotten** requests will require a separate audit redaction process — not a v1 build; flag when production pressure arrives.
 - **Audit log backups** must be treated as sensitive data when production-bound.
+
+**`audit_log` column names** (avoid the common wrong guesses):
+
+- `entity_type` text — *not* `table_name` / `target_table`
+- `entity_id` uuid — *not* `target_id`
+- `actor_id` uuid → `auth.users(id)` — *not* `actor_user_id`
+- `actor_type` (enum) — populated by trigger; expect `'system'` for SQL Editor inserts where `auth.uid()` is null
+- `occurred_at` timestamptz — *not* `created_at`
+- `before_state` / `after_state` / `metadata` jsonb
+- Indexed on `(entity_type, entity_id, occurred_at DESC)` and `(actor_id, occurred_at DESC)` — filter on those for fast lookups.
 
 **Deferred to v2**
 
@@ -135,4 +146,6 @@ _Update this as we go._
 - Project scaffold landed: Next.js 16 + Tailwind v3 + shadcn primitives + Supabase server/client helpers.
 - Social Plus pilot organisation seeded (slug `social-plus`, id `c1d9cf17-3f1c-4a13-aca6-d95fafed3397`).
 - Public enquiry form at `/enquire` shipped and verified end-to-end. Submits via `/api/enquiries` (service-role insert, honeypot, slug-pinned org lookup); audit trigger captures every submission as `actor_type='system'`. Validation schema in `src/lib/validation/enquiry.ts` is shared between client and server.
-- Next: candidate portal scaffolding. Manual SQL seeds for admin membership + a test candidate first; the HR invitation flow is deferred to a later session.
+- Candidate portal **Phase 1** landed and verified end-to-end: Supabase Auth email/password login & logout via Server Actions; a cookie-bridging middleware (`src/lib/supabase/middleware.ts` + root `middleware.ts`) refreshes tokens and protects `/portal/*` with a redirect to `/login` when no auth user is present; `/portal` index greets the candidate by `first_name` via an RLS-respecting query against `candidates`. Login form imports its server action directly into the client component (not via prop) — required pattern under Next 16's RSC→Client boundary.
+- Codespaces dev requires `experimental.serverActions.allowedOrigins` to include both the Codespace URL and `localhost:3000` (proxy presents different `origin` and `x-forwarded-host`). Gated on `CODESPACE_NAME` env in `next.config.ts`; production same-origin enforcement unaffected.
+- Next: **Phase 2 — `/portal/profile`** (read + edit). Then **Phase 3 — `/portal/documents`** (list + upload). HR admin login flow + `organisation_members` seed comes after that.
