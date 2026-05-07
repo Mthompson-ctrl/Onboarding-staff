@@ -1,13 +1,13 @@
 // =============================================================================
-// Documents — UI-side helpers for the candidate documents portal.
+// Documents — domain helpers for the candidate documents portal.
 //
 // Categories are a UI concept (visual grouping); the schema only stores
 // `display_order`. The mapping is keyed on `document_types.code` so it
 // survives id changes between environments.
 //
-// This module starts intentionally minimal. M3 will add the storage path
-// builder, file-size / MIME constants, and per-type field-requirement
-// helpers when the upload pipeline lands.
+// File constants and the storage path builder live here too — single
+// source of truth shared between the validation schema (which checks the
+// candidate's upload) and the action that writes to Supabase Storage.
 // =============================================================================
 
 export type DocumentCategory =
@@ -69,3 +69,41 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   rejected: "Rejected",
   superseded: "Superseded",
 };
+
+// ---------------------------------------------------------------------------
+// File + storage constants
+//
+// Consumed by both the validation schema (`src/lib/validation/document.ts`)
+// and the upload action (M5). Bucket-level limits in the M1 migration must
+// stay aligned with these values — change them in lockstep.
+// ---------------------------------------------------------------------------
+
+export const DOCUMENT_MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+export const DOCUMENT_ALLOWED_MIME = "application/pdf" as const;
+export const DOCUMENT_ALLOWED_EXTENSION = ".pdf" as const;
+
+// Storage bucket name. Hard-coded literal — see CLAUDE.md → Storage for
+// the bucket-rename lockstep rule (RLS policies + this constant move
+// together).
+export const DOCUMENT_STORAGE_BUCKET = "candidate-documents" as const;
+
+// Path layout: <org_id>/<candidate_id>/<doc_type_code>/<doc_id>.pdf
+// Must match the Storage RLS policies in migration 20260507000001 — token
+// [1] (org_id) and [2] (candidate_id) are RLS-checked; [3] / filename are
+// application-enforced. Don't reorder without updating the policies.
+export function buildDocumentStoragePath(args: {
+  organisationId: string;
+  candidateId: string;
+  docTypeCode: string;
+  documentId: string;
+}): string {
+  return `${args.organisationId}/${args.candidateId}/${args.docTypeCode}/${args.documentId}${DOCUMENT_ALLOWED_EXTENSION}`;
+}
+
+// Expiry-date label varies by type. The schema column comment notes that
+// for National Police Check, the "expiry" is provider freshness policy
+// (e.g. 12 months from issue) rather than a real expiry on the
+// certificate, so we surface that distinction in the form copy.
+export function expiryLabelFor(code: string): string {
+  return code === "national_police_check" ? "Renewal due" : "Expires";
+}
