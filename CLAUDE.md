@@ -133,6 +133,15 @@ Multi-tenant onboarding schema lives in Supabase. Migration files in `supabase/m
 - Notifications/reminders (e.g. "First Aid expiring in 30 days") — query-driven for now via the `documents_expiry_idx` partial index.
 - Two-eyes verification — single-step `verified_by` for v1; promotable to a verifications table later.
 
+## Storage
+
+Candidate document uploads land in Supabase Storage. One private bucket, RLS-policed.
+
+- **Bucket: `candidate-documents`** — private, PDF only, 5 MB ceiling. Configured via `INSERT … ON CONFLICT (id) DO UPDATE` so the migration (`20260507000001_documents_storage.sql`) is the source of truth for `public`, `file_size_limit`, and `allowed_mime_types`; dashboard drift is corrected on next apply.
+- **Path layout:** `<org_id>/<candidate_id>/<doc_type_code>/<doc_id>.pdf`. Tokens [1] and [2] are RLS-checked against the candidate's row; [3] (doc_type_code) and [4] (filename) are application-enforced — RLS treats them as opaque. The upload Server Action is the only place that decides what goes into [3]/[4].
+- **Storage RLS** (`storage.objects` policies) mirrors the `documents`-table access model: candidate reads/writes their own `<org_id>/<candidate_id>/...` prefix; HR (`is_org_member`) reads/writes anywhere in their org's prefix. Two separate INSERT policies (candidate + HR) for clearer audit. HR predicates regex-guard the uuid cast to avoid `invalid_text_representation` errors on malformed paths. No UPDATE / DELETE policies for `authenticated` — immutable design (matches `documents` table; corrections via supersession, retention via service role).
+- **Bucket-name lockstep.** The literal `'candidate-documents'` is hard-coded in every storage policy in `supabase/migrations/20260507000001_documents_storage.sql`. If the bucket is ever renamed, the policies must be updated in lockstep.
+
 ## Migration workflow
 
 - Migrations live in `supabase/migrations/` with timestamp-prefixed filenames (`YYYYMMDDhhmmss_name.sql`).
@@ -151,4 +160,6 @@ _Update this as we go._
 - Candidate portal **Phase 1** landed and verified end-to-end: Supabase Auth email/password login & logout via Server Actions; a cookie-bridging middleware (`src/lib/supabase/middleware.ts` + root `middleware.ts`) refreshes tokens and protects `/portal/*` with a redirect to `/login` when no auth user is present; `/portal` index greets the candidate by `first_name` via an RLS-respecting query against `candidates`. Login form imports its server action directly into the client component (not via prop) — required pattern under Next 16's RSC→Client boundary.
 - Codespaces dev requires `experimental.serverActions.allowedOrigins` to include both the Codespace URL and `localhost:3000` (proxy presents different `origin` and `x-forwarded-host`). Gated on `CODESPACE_NAME` env in `next.config.ts`; production same-origin enforcement unaffected.
 - Candidate portal **Phase 2** landed: `/portal/profile` (read mode) and `/portal/profile/edit` (edit mode) as separate RSC routes. Edit posts via a Server Action that writes through the `candidate_self_updatable` view; lock state for DOB and RTW fields is enforced both server-side (action gates the payload) and at the DB layer (INSTEAD OF UPDATE trigger). Tri-state booleans for licence / vehicle, comma-split text input for languages, single-checkbox `support_worker` for `preferred_roles`. Availability deferred (see Deferred to v2).
-- Next: **Phase 3 — `/portal/documents`** (list + upload). HR admin login flow + `organisation_members` seed comes after that.
+- Candidate portal **Phase 3** in progress — `/portal/documents` (list + upload).
+  - **M1 landed:** candidate-documents storage bucket (private, PDF only, 5 MB) and `storage.objects` RLS policies, via migration `20260507000001_documents_storage.sql`. Verified end-to-end against dev (bucket config + 4 policies). See the **Storage** section above for the full path-layout / RLS model.
+- Next: **Phase 3 M2** — documents list page (`/portal/documents`), read-only, all 12 system-global doc types grouped by category. HR admin login flow + `organisation_members` seed comes after Phase 3.
