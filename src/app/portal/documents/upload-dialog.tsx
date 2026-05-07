@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState, type ChangeEvent } from "react";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,23 +13,104 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DOCUMENT_ALLOWED_EXTENSION,
+  DOCUMENT_MAX_FILE_BYTES,
+  expiryLabelFor,
+} from "@/lib/documents";
+import { AU_STATES } from "@/lib/validation/enquiry";
 
-// Stub upload dialog — M2 wires up the open/close shell only. The real form
-// (file input, conditional fields, server-action submit) lands in M3–M5.
-// Keeping this component intentionally small until then so the diff in M4
-// stays focused on the form itself.
+import { uploadDocument, type UploadDocumentState } from "./actions";
+
+// Per-row upload dialog. The list page passes the doc-type metadata as
+// props; the form renders fields conditional on the flags so it agrees
+// with the same flags the M5 server action will use to build its
+// validation schema (`documentUploadSchema(flags)`).
 //
-// Open/close state is local. Once the action exists, the close-after-success
-// choreography (action returns ok → setOpen(false) + router.refresh) gets
-// designed in M3 — see Phase 3 notes.
+// Action contract: returns `{ ok: true } | { error } | { fieldErrors }`.
+// Stubbed in M4 — always returns `{ error }`. M5 fills in the real
+// pipeline. The `ok` branch will close the dialog (`setOpen(false)`)
+// and refresh the list (`router.refresh()`) — wiring lands in M5 once
+// the action can actually return ok.
 
 type UploadDialogProps = {
   code: string;
   name: string;
+  description: string | null;
+  capturesReferenceNumber: boolean;
+  capturesState: boolean;
+  hasExpiry: boolean;
 };
 
-export function UploadDialog({ code, name }: UploadDialogProps) {
+const STATE_LABELS: Record<(typeof AU_STATES)[number], string> = {
+  NSW: "New South Wales",
+  VIC: "Victoria",
+  QLD: "Queensland",
+  WA: "Western Australia",
+  SA: "South Australia",
+  TAS: "Tasmania",
+  ACT: "Australian Capital Territory",
+  NT: "Northern Territory",
+};
+
+const INITIAL_STATE: UploadDocumentState = {};
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-destructive">{message}</p>;
+}
+
+function SubmitButton({ disabled }: { disabled?: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      disabled={pending || disabled}
+      className="bg-navy hover:bg-navy/90"
+    >
+      {pending ? "Uploading…" : "Upload"}
+    </Button>
+  );
+}
+
+export function UploadDialog({
+  code,
+  name,
+  description,
+  capturesReferenceNumber,
+  capturesState,
+  hasExpiry,
+}: UploadDialogProps) {
   const [open, setOpen] = useState(false);
+  const [clientFileError, setClientFileError] = useState<string | null>(null);
+  const [state, formAction] = useActionState<UploadDocumentState, FormData>(
+    uploadDocument,
+    INITIAL_STATE,
+  );
+
+  const fieldErrors = state.fieldErrors ?? {};
+  const expiryLabel = expiryLabelFor(code);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.currentTarget.files?.[0] ?? null;
+    if (f && f.size > DOCUMENT_MAX_FILE_BYTES) {
+      const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+      setClientFileError(
+        `File is ${sizeMb} MB — must be 5 MB or smaller.`,
+      );
+    } else {
+      setClientFileError(null);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -40,17 +122,109 @@ export function UploadDialog({ code, name }: UploadDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-navy">Upload {name}</DialogTitle>
-          <DialogDescription>
-            The upload form for{" "}
-            <span className="font-mono text-foreground">{code}</span> isn&apos;t
-            wired up yet. We&apos;ll switch it on shortly.
-          </DialogDescription>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : null}
         </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Close
-          </Button>
-        </DialogFooter>
+
+        <form action={formAction} className="flex flex-col gap-4">
+          {state.error ? (
+            <div className="rounded border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              {state.error}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`upload-file-${code}`}>PDF document</Label>
+            <Input
+              id={`upload-file-${code}`}
+              type="file"
+              name="file"
+              accept={DOCUMENT_ALLOWED_EXTENSION}
+              required
+              onChange={handleFileChange}
+            />
+            <p className="text-xs text-muted-foreground">
+              Up to 5 MB. PDF only.
+            </p>
+            {clientFileError ? (
+              <p className="text-xs text-destructive">{clientFileError}</p>
+            ) : null}
+            <FieldError message={fieldErrors.file} />
+          </div>
+
+          {capturesReferenceNumber ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`upload-ref-${code}`}>Reference number</Label>
+              <Input
+                id={`upload-ref-${code}`}
+                type="text"
+                name="reference_number"
+                maxLength={120}
+                required
+              />
+              <FieldError message={fieldErrors.reference_number} />
+            </div>
+          ) : null}
+
+          {capturesState ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`upload-state-${code}`}>Issuing state</Label>
+              <Select name="issuing_state" required>
+                <SelectTrigger id={`upload-state-${code}`}>
+                  <SelectValue placeholder="Select a state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AU_STATES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATE_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError message={fieldErrors.issuing_state} />
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`upload-issue-${code}`}>
+              Issue date{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+            <Input
+              id={`upload-issue-${code}`}
+              type="date"
+              name="issue_date"
+            />
+            <FieldError message={fieldErrors.issue_date} />
+          </div>
+
+          {hasExpiry ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`upload-expiry-${code}`}>{expiryLabel}</Label>
+              <Input
+                id={`upload-expiry-${code}`}
+                type="date"
+                name="expiry_date"
+                required
+              />
+              <FieldError message={fieldErrors.expiry_date} />
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <SubmitButton disabled={clientFileError !== null} />
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

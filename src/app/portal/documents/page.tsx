@@ -23,6 +23,8 @@ type DocumentTypeRow = {
   name: string;
   description: string | null;
   required_by_default: boolean;
+  captures_reference_number: boolean;
+  captures_state: boolean;
   has_expiry: boolean;
   display_order: number;
 };
@@ -125,7 +127,7 @@ export default async function DocumentsPage() {
   const { data: docTypes, error: docTypesError } = await supabase
     .from("document_types")
     .select(
-      "id, code, name, description, required_by_default, has_expiry, display_order",
+      "id, code, name, description, required_by_default, captures_reference_number, captures_state, has_expiry, display_order",
     )
     .is("organisation_id", null)
     .is("deleted_at", null)
@@ -235,7 +237,14 @@ export default async function DocumentsPage() {
                             Uploaded {formatUploadedDate(d.uploaded_at)}
                           </span>
                         ) : (
-                          <UploadDialog code={t.code} name={t.name} />
+                          <UploadDialog
+                            code={t.code}
+                            name={t.name}
+                            description={t.description}
+                            capturesReferenceNumber={t.captures_reference_number}
+                            capturesState={t.captures_state}
+                            hasExpiry={t.has_expiry}
+                          />
                         )}
                       </div>
                     </li>
