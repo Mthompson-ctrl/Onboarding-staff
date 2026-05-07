@@ -125,25 +125,34 @@ CREATE OR REPLACE FUNCTION candidate_self_update() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+DECLARE
+  current_status candidate_status;
 BEGIN
-  -- Re-verify ownership; SECURITY DEFINER bypasses RLS so we must check.
-  IF NOT EXISTS (
-    SELECT 1 FROM candidates
-    WHERE id = OLD.id
-      AND user_id = auth.uid()
-      AND deleted_at IS NULL
-  ) THEN
+  -- Re-verify ownership AND fetch current status in a single lookup.
+  -- SECURITY DEFINER bypasses RLS, so we explicitly match user_id = auth.uid().
+  -- `status` is not exposed via the view (deliberately HR-controlled), so it
+  -- cannot be read off OLD/NEW; we read it from the underlying table here
+  -- and use it for the RTW lock check below.
+  SELECT status INTO current_status
+  FROM candidates
+  WHERE id = OLD.id
+    AND user_id = auth.uid()
+    AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'candidate_self_update: forbidden';
   END IF;
 
   -- date_of_birth: editable while null, locked once set.
+  -- (date_of_birth IS exposed via the view, so OLD/NEW carry it directly.)
   IF OLD.date_of_birth IS NOT NULL
      AND NEW.date_of_birth IS DISTINCT FROM OLD.date_of_birth THEN
     RAISE EXCEPTION 'candidate_self_update: date_of_birth cannot be changed once set';
   END IF;
 
   -- RTW fields: locked once status leaves invited / profile_in_progress.
-  IF OLD.status NOT IN ('invited', 'profile_in_progress')
+  -- Uses current_status fetched above (status is not in the view).
+  IF current_status NOT IN ('invited', 'profile_in_progress')
      AND (
        NEW.rtw_status     IS DISTINCT FROM OLD.rtw_status
        OR NEW.visa_subclass IS DISTINCT FROM OLD.visa_subclass
