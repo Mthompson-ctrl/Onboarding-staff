@@ -1,5 +1,14 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
@@ -59,13 +68,46 @@ export default async function PortalIndexPage() {
   }
 
   return (
-    <section className="flex flex-col gap-2">
-      <h1 className="text-2xl font-semibold text-navy">
-        Hello, {candidate.first_name}
-      </h1>
-      <p className="text-sm text-muted-foreground">
-        You&apos;re signed in as {user.email}.
-      </p>
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold text-navy">
+          Hello, {candidate.first_name}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          You&apos;re signed in as {user.email}.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base text-navy">Your profile</CardTitle>
+            <CardDescription className="text-xs">
+              Personal details, contact information, and right-to-work status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="bg-navy hover:bg-navy/90">
+              <Link href="/portal/profile">Open profile</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base text-navy">Your documents</CardTitle>
+            <CardDescription className="text-xs">
+              Upload the clearances, certificates, and qualifications your
+              provider needs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="bg-navy hover:bg-navy/90">
+              <Link href="/portal/documents">Open documents</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }
