@@ -9,7 +9,7 @@ import {
   categoryForCode,
   type DocumentCategory,
   type DocumentStatus,
-} from "@/lib/documents";
+} from "@sentinel/shared/documents";
 
 import { UploadDialog } from "./upload-dialog";
 import { UploadedBanner } from "./uploaded-banner";

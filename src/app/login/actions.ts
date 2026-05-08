@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { loginSchema } from "@/lib/validation/auth";
+import { loginSchema } from "@sentinel/shared/validation/auth";
 
 export type LoginState = {
   error?: string;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AU_STATES } from "./enquiry";
+import { AU_STATES } from "./au-states";
 
 // v1 ships a single role intentionally — `support_worker` is the dominant
 // role for our pilot. The schema stays `text[]` at the DB level so future

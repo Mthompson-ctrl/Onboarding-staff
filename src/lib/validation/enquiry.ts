@@ -1,18 +1,6 @@
 import { z } from "zod";
 
-// Australian state/territory codes — must match the `au_state` Postgres
-// domain in `supabase/migrations/20260505000001_initial_schema.sql`. Mirror
-// any change to the domain here.
-export const AU_STATES = [
-  "NSW",
-  "VIC",
-  "QLD",
-  "WA",
-  "SA",
-  "TAS",
-  "ACT",
-  "NT",
-] as const;
+import { AU_STATES } from "@sentinel/shared/validation/au-states";
 
 // Free-text role buckets shown in the enquiry dropdown. `leads.preferred_role`
 // is a plain `text` column (not an enum) so HR can extend without a migration;

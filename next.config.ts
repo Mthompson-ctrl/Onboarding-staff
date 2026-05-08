@@ -21,6 +21,12 @@ const codespaceAllowedOrigins =
     : undefined;
 
 const nextConfig: NextConfig = {
+  // Internal monorepo package — Next compiles its raw .ts source via the
+  // bundler. No build step / dist output in packages/shared; consumers
+  // import directly from "@sentinel/shared/<subpath>" and the exports
+  // map (packages/shared/package.json) resolves to ./src/<subpath>.ts.
+  transpilePackages: ["@sentinel/shared"],
+
   experimental: {
     serverActions: {
       allowedOrigins: codespaceAllowedOrigins,

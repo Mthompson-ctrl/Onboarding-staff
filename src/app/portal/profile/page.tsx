@@ -10,12 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatAuDate } from "@/lib/date";
+import { formatAuDate } from "@sentinel/shared/date";
 import { createClient } from "@/lib/supabase/server";
 import {
   PROFILE_PREFERRED_ROLE_LABELS,
   RTW_STATUS_LABELS,
-} from "@/lib/validation/profile";
+} from "@sentinel/shared/validation/profile";
 
 export const metadata = {
   title: "Your profile — Sentinel HR",

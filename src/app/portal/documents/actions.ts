@@ -5,11 +5,11 @@ import {
   buildDocumentStoragePath,
   DOCUMENT_ALLOWED_MIME,
   DOCUMENT_STORAGE_BUCKET,
-} from "@/lib/documents";
+} from "@sentinel/shared/documents";
 import {
   documentUploadSchema,
   type DocumentTypeFlags,
-} from "@/lib/validation/document";
+} from "@sentinel/shared/validation/document";
 
 // =============================================================================
 // Document upload — server action.

@@ -3,9 +3,9 @@ import { z } from "zod";
 import {
   DOCUMENT_ALLOWED_MIME,
   DOCUMENT_MAX_FILE_BYTES,
-} from "@/lib/documents";
+} from "../documents";
 
-import { AU_STATES } from "./enquiry";
+import { AU_STATES } from "./au-states";
 
 // =============================================================================
 // Document upload validation.

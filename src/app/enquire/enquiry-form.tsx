@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AU_STATES } from "@sentinel/shared/validation/au-states";
 import {
-  AU_STATES,
   PREFERRED_ROLES,
   PREFERRED_ROLE_LABELS,
   enquirySchema,

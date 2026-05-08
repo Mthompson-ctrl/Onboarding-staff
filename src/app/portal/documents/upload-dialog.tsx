@@ -33,8 +33,8 @@ import {
   DOCUMENT_ALLOWED_EXTENSION,
   DOCUMENT_MAX_FILE_BYTES,
   expiryLabelFor,
-} from "@/lib/documents";
-import { AU_STATES } from "@/lib/validation/enquiry";
+} from "@sentinel/shared/documents";
+import { AU_STATES } from "@sentinel/shared/validation/au-states";
 
 import { uploadDocument, type UploadDocumentState } from "./actions";
 

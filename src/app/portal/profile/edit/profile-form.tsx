@@ -15,14 +15,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatAuDate } from "@/lib/date";
+import { formatAuDate } from "@sentinel/shared/date";
 import {
   PROFILE_PREFERRED_ROLES,
   PROFILE_PREFERRED_ROLE_LABELS,
   RTW_STATUSES,
   RTW_STATUS_LABELS,
-} from "@/lib/validation/profile";
-import { AU_STATES } from "@/lib/validation/enquiry";
+} from "@sentinel/shared/validation/profile";
+import { AU_STATES } from "@sentinel/shared/validation/au-states";
 
 import { updateProfile, type UpdateProfileState } from "./actions";
 

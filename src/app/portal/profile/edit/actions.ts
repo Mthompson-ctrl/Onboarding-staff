@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   profileEditSchema,
   type ProfileEditInput,
-} from "@/lib/validation/profile";
+} from "@sentinel/shared/validation/profile";
 
 export type UpdateProfileState = {
   error?: string;
