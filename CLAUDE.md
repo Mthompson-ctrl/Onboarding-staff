@@ -23,6 +23,49 @@ Marketing site: https://www.sentinelhr.com.au
 
 > Note: original spec said Next.js 15. Updated to 16 (current stable as of scaffold) on Mthompson's call. Next.js 16 has breaking changes from prior major versions — per the scaffold's own AGENTS.md note (since removed), refer to `node_modules/next/dist/docs/` for current conventions before relying on training-data knowledge.
 
+## Repo layout
+
+The repository is an **npm workspaces** monorepo. As of M1 (Phase Mobile, May 2026):
+
+```
+/
+├── apps/
+│   ├── web/           — Next.js web app: server-rendered, RSC + Server Actions.
+│   │                    Owns the candidate portal (Phases 1–3) and will own the
+│   │                    HR admin flow (Phase 4). Auth via @supabase/ssr (cookies)
+│   │                    + cookie-bridging middleware. shadcn primitives generated
+│   │                    here (apps/web/src/components/ui/*).
+│   └── mobile/        — placeholder; M2+ creates this. Capacitor wrapper around
+│                        a Next.js static export (output: "export"). Auth via
+│                        @supabase/supabase-js (localStorage). Candidate-only
+│                        scope; no HR admin, no public enquiry form.
+├── packages/
+│   └── shared/        — framework-neutral pure modules consumed by both apps:
+│                        validation schemas (auth, document, profile, au-states),
+│                        document constants + storage path builder, formatAuDate.
+│                        Source-direct exports (`./*` -> `./src/*.ts`); apps
+│                        compile the .ts via Next's `transpilePackages`. No
+│                        build step, no dist/.
+├── supabase/
+│   └── migrations/    — single source of truth for the schema. The DB serves
+│                        web AND mobile (and Phase 4 HR admin); migrations stay
+│                        at repo root, NOT inside an app. Generated Supabase
+│                        types (when added) live in packages/shared.
+├── tsconfig.base.json — compiler options shared between apps and packages.
+│                        Each project's tsconfig extends it.
+├── package.json       — workspace orchestration only. No deps. Proxy scripts
+│                        (`npm run dev` -> `npm run dev -w @sentinel/web`, etc).
+├── package-lock.json  — single lockfile at root. npm workspaces hoist deps
+│                        into a single root node_modules.
+└── CLAUDE.md / README.md / .gitignore / .prettierrc — repo-wide.
+```
+
+**Workspace pattern.** One `node_modules/` at the repo root (npm workspaces hoist). `node_modules/@sentinel/{web,shared}` are symlinks back to `apps/web` and `packages/shared`. `apps/web` declares `"@sentinel/shared": "*"` as a dependency; the workspace resolution wires it up at install time.
+
+**Adding a shared module.** Drop a `.ts` file under `packages/shared/src/`. The exports map (`"./*": "./src/*.ts"`) makes it importable as `@sentinel/shared/<path>` from any app immediately — no build step, no manifest edit.
+
+**Future deploy note.** When this repo gets a deploy host attached (Vercel, Netlify, etc), set the project's **Root Directory = `apps/web`**. The build command stays `npm run build` (or auto-detected from `apps/web/package.json`). Onboarding-staff currently has no deploy attached; flagging here so it doesn't get missed when one is added.
+
 ## Domain context
 
 - **NDIS** = National Disability Insurance Scheme (Australia). Providers operate under strict regulation by the NDIS Commission.
@@ -169,4 +212,6 @@ _Update this as we go._
   - **Phase 3 design note — RPC pattern for candidate document inserts** (decided and shipped in M5, migration `20260508000001_candidate_insert_document_rpc.sql`). Candidate-side `documents` inserts go through `candidate_insert_document(...)` rather than a direct INSERT under the existing RLS policy or an INSTEAD OF INSERT view. The function is `SECURITY DEFINER`, runs with `search_path = public, pg_temp`, and (1) re-derives `organisation_id` and `candidate_id` from `auth.uid()` — never trusts client-asserted ownership; (2) verifies `document_type_id` resolves to a system-global, active type (per-org custom types deferred); (3) verifies `storage_path` equals `format('%s/%s/%s/%s.pdf', org, candidate, doc_code, doc_id)` — the same layout `buildDocumentStoragePath()` produces in `src/lib/documents.ts`, so the action's path builder and the RPC's verifier are two anchors on one rope; (4) `PERFORM set_config('app.actor_type', 'candidate', true)` so the existing `audit_trigger` on `documents` records the INSERT as `actor_type='candidate'` (same mechanism as `candidate_self_update`); (5) inserts and returns the new id. EXECUTE is revoked from PUBLIC and granted to `authenticated` only. **Why RPC over an INSTEAD OF INSERT view:** documents are immutable inserts (corrections via supersession, not UPDATE), so we don't gain anything from the view's column-allowlist machinery, and a single named function is more naturally fit, easier to audit, and gives us the txn-tagging hook in one place. HR uploads continue to INSERT directly under the existing `is_org_member` policy and do not use this RPC; the candidate-self branch of `documents_insert` remains in place as defense in depth.
   - **Phase 3 design note — close-after-success choreography** (decided in M3, landed in M5, refined in M6): `uploadDocument` returns `{ ok: true } | { fieldErrors } | { error }` rather than calling `redirect()`. `redirect()` throws `NEXT_REDIRECT`, which bypasses any `setOpen(false)` queued client-side. The dialog reacts to `ok` in a `useEffect` (guarded by `didCloseRef` so re-mounts with retained ok-state can't re-fire), calls `setOpen(false)`, then `router.replace('/portal/documents?uploaded=<code>', { scroll: false })`. The query-string change re-renders the page (so the row updates) AND signals the success banner (M6). `replace` not `push` keeps back-button history clean. Assumption: the dialog only opens from `/portal/documents` — if deep-linkable upload URLs ever arrive (e.g. an email "click to upload your First Aid cert"), this needs revisiting.
   - **M6 landed (Phase 3 polish, closes Phase 3):** post-upload success banner, long-form date display, and a documents-progress mirror on the portal index. (1) Banner: `/portal/documents?uploaded=<code>` is read by the list page (Next 16 `searchParams: Promise<…>`, awaited inside the async RSC), the code is resolved against the already-fetched `docTypes` array (no human name in the URL — keeps it short and avoids escaping), and a client `UploadedBanner` renders a teal-accented "**[Doc type name]** uploaded — pending review" with a dismiss button. Stays until dismissed (compliance flow benefits from explicit acknowledgement) — dismiss → `router.replace('/portal/documents', { scroll: false })`. Stale or unresolvable codes render no banner. (2) Long-form dates: extracted `formatAuDate(iso)` to `src/lib/date.ts` so the read-mode profile, the locked DOB block in edit mode, and any future date display all render `10 August 1995` rather than `1995-08-10`. (3) Index card mirrors the documents page's `verifiedRequired / totalRequired (pctComplete%)` so the candidate sees their progress without clicking through. Verified end-to-end against dev: upload a PDF → banner appears with the doc-type name → dismiss drops the param → reload → banner gone; both DOB sites render long-form; portal index card shows the correct progress numbers.
-- **Phase 3 closed.** Next: **Phase 4 — HR admin login flow + `organisation_members` seed**, then HR-side document review (verify / reject), then a candidate "view what I uploaded" affordance (signed-URL plumbing shared with HR review). Re-upload / supersession via `replaces_document_id` is still deferred — the RPC currently always inserts as a new document and the unique partial index fires `23505` on a second attempt for the same type (mapped to a friendly message in the action). Per-org custom doc types, image upload support, and server-side virus scanning all remain post-MVP.
+- **Phase 3 closed.**
+- **Phase Mobile M1 in progress** — workspace restructure ahead of the Capacitor wrapper. Three commits on branch `phase-mobile/m1-workspace-restructure`: M1.1 scaffolding (root workspaces config + `tsconfig.base.json` + `packages/shared` skeleton); M1.2 moved the framework-neutral shared modules (`date`, `documents`, `validation/{auth,document,profile,au-states}`) into `@sentinel/shared` and rewrote the web app's imports; **M1.3 lifted the entire web tree under `apps/web/`** and split the root `package.json` into a workspace-orchestration manifest plus the moved `@sentinel/web` manifest. M1 closes when M1.3 lands. Each commit was verified end-to-end against dev (tsc + production build + 6-route smoke including a real PDF upload), so the branch is bisect-safe.
+- Next: **Phase 4 — HR admin login flow + `organisation_members` seed**, then HR-side document review (verify / reject), then a candidate "view what I uploaded" affordance (signed-URL plumbing shared with HR review). Phase 4 lives entirely in `apps/web` and is unaffected by the mobile work in `apps/mobile`. Re-upload / supersession via `replaces_document_id` is still deferred — the RPC currently always inserts as a new document and the unique partial index fires `23505` on a second attempt for the same type (mapped to a friendly message in the action). Per-org custom doc types, image upload support, and server-side virus scanning all remain post-MVP — though image upload becomes a v1-mobile dependency and is expected to widen the schema during Phase Mobile M6.
