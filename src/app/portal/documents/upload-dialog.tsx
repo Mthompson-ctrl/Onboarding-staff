@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -37,10 +44,12 @@ import { uploadDocument, type UploadDocumentState } from "./actions";
 // validation schema (`documentUploadSchema(flags)`).
 //
 // Action contract: returns `{ ok: true } | { error } | { fieldErrors }`.
-// Stubbed in M4 — always returns `{ error }`. M5 fills in the real
-// pipeline. The `ok` branch will close the dialog (`setOpen(false)`)
-// and refresh the list (`router.refresh()`) — wiring lands in M5 once
-// the action can actually return ok.
+// On `ok`, the useEffect below closes the dialog and refreshes the list.
+// `didCloseRef` guards against re-firing if the dialog re-opens with the
+// same retained ok-state from useActionState — though in practice the
+// list page hides the Upload button once a non-superseded doc exists for
+// the type, so re-open is unreachable through normal UX. Defense in
+// depth.
 
 type UploadDialogProps = {
   code: string;
@@ -90,12 +99,22 @@ export function UploadDialog({
   capturesState,
   hasExpiry,
 }: UploadDialogProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientFileError, setClientFileError] = useState<string | null>(null);
   const [state, formAction] = useActionState<UploadDocumentState, FormData>(
     uploadDocument,
     INITIAL_STATE,
   );
+
+  const didCloseRef = useRef(false);
+  useEffect(() => {
+    if (state.ok && !didCloseRef.current) {
+      didCloseRef.current = true;
+      setOpen(false);
+      router.refresh();
+    }
+  }, [state.ok, router]);
 
   const fieldErrors = state.fieldErrors ?? {};
   const expiryLabel = expiryLabelFor(code);
@@ -128,6 +147,11 @@ export function UploadDialog({
         </DialogHeader>
 
         <form action={formAction} className="flex flex-col gap-4">
+          {/* Pinned to the doc-type code so the action knows which row's
+              flags to load. Untrusted on the server — the action and the
+              RPC each verify the code resolves to a system-global type. */}
+          <input type="hidden" name="code" value={code} />
+
           {state.error ? (
             <div className="rounded border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {state.error}

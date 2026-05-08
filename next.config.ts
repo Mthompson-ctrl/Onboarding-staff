@@ -24,6 +24,11 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: codespaceAllowedOrigins,
+      // Default Server Actions body limit is 1 MB; the candidate-documents
+      // bucket caps PDFs at 5 MB, plus FormData multipart overhead. 6 MB
+      // gives the 5 MB file room to land. Limit applies app-wide — Next 16
+      // does not currently scope bodySizeLimit per route.
+      bodySizeLimit: "6mb",
     },
   },
 };
