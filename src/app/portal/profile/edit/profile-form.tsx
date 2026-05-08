@@ -15,6 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatAuDate } from "@/lib/date";
 import {
   PROFILE_PREFERRED_ROLES,
   PROFILE_PREFERRED_ROLE_LABELS,
@@ -194,7 +195,11 @@ export function ProfileForm({ initial, dobLocked, rtwLocked }: ProfileFormProps)
               <div className="mt-1 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Lock className="h-3 w-3" aria-hidden />
-                  <span>{initial.date_of_birth}</span>
+                  <span>
+                    {initial.date_of_birth
+                      ? formatAuDate(initial.date_of_birth)
+                      : ""}
+                  </span>
                   <span className="text-xs text-muted-foreground">Locked</span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">

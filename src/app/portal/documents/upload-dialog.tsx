@@ -112,9 +112,23 @@ export function UploadDialog({
     if (state.ok && !didCloseRef.current) {
       didCloseRef.current = true;
       setOpen(false);
-      router.refresh();
+      // router.replace (not refresh) so the success banner can read the
+      // doc-type code from `?uploaded=<code>`. Replace (not push) keeps
+      // the back-button history clean — the user was on /portal/documents
+      // before, and they're still on /portal/documents after; they
+      // shouldn't have to skip a "?uploaded=..." entry going back.
+      //
+      // Assumption: this dialog only opens from /portal/documents. If we
+      // ever build deep-linkable upload URLs (e.g. an email "click to
+      // upload your First Aid cert" landing somewhere else), revisit —
+      // we'd want to replace to the originating route or pass an explicit
+      // success-redirect target.
+      router.replace(
+        `/portal/documents?uploaded=${encodeURIComponent(code)}`,
+        { scroll: false },
+      );
     }
-  }, [state.ok, router]);
+  }, [state.ok, router, code]);
 
   const fieldErrors = state.fieldErrors ?? {};
   const expiryLabel = expiryLabelFor(code);

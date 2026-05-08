@@ -31,7 +31,7 @@ export default async function PortalIndexPage() {
   // auth users without a candidates row will hit the unlinked branch below.
   const { data: candidate, error } = await supabase
     .from("candidates")
-    .select("first_name")
+    .select("id, first_name")
     .eq("user_id", user.id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -67,6 +67,37 @@ export default async function PortalIndexPage() {
     );
   }
 
+  // Documents progress mirror — same arithmetic as /portal/documents/page.tsx.
+  // Two extra queries on the index page is fine: both are RLS-narrow and
+  // small (≤ 12 doc-type rows + ≤ N candidate doc rows). If this surfaces
+  // elsewhere we'd extract a shared helper; for now, two sites is two sites.
+  const [{ data: docTypesForProgress }, { data: docsForProgress }] =
+    await Promise.all([
+      supabase
+        .from("document_types")
+        .select("id, required_by_default")
+        .is("organisation_id", null)
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .eq("required_by_default", true),
+      supabase
+        .from("documents")
+        .select("document_type_id, status")
+        .eq("candidate_id", candidate.id)
+        .is("deleted_at", null)
+        .neq("status", "superseded"),
+    ]);
+
+  const totalRequired = docTypesForProgress?.length ?? 0;
+  const requiredTypeIds = new Set(
+    (docTypesForProgress ?? []).map((t) => t.id),
+  );
+  const verifiedRequired = (docsForProgress ?? []).filter(
+    (d) => d.status === "verified" && requiredTypeIds.has(d.document_type_id),
+  ).length;
+  const pctComplete =
+    totalRequired === 0 ? 0 : Math.round((verifiedRequired / totalRequired) * 100);
+
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -101,7 +132,18 @@ export default async function PortalIndexPage() {
               provider needs.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-semibold text-navy">
+                {verifiedRequired}
+                <span className="text-sm font-normal text-muted-foreground">
+                  {" "}of {totalRequired}
+                </span>
+              </span>
+              <span className="text-xs text-muted-foreground">
+                required verified ({pctComplete}%)
+              </span>
+            </div>
             <Button asChild className="bg-navy hover:bg-navy/90">
               <Link href="/portal/documents">Open documents</Link>
             </Button>

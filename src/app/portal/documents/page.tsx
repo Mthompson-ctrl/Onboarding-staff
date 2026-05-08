@@ -12,6 +12,7 @@ import {
 } from "@/lib/documents";
 
 import { UploadDialog } from "./upload-dialog";
+import { UploadedBanner } from "./uploaded-banner";
 
 export const metadata = {
   title: "Your documents — Sentinel HR",
@@ -89,7 +90,14 @@ function formatUploadedDate(iso: string): string {
   }
 }
 
-export default async function DocumentsPage() {
+// Next 16: searchParams is a Promise of a plain object — must be awaited
+// inside the async page. Verified against
+// node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md.
+type DocumentsPageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
   const supabase = await createClient();
 
   const {
@@ -176,8 +184,22 @@ export default async function DocumentsPage() {
     grouped.set(cat, list);
   }
 
+  // Resolve `?uploaded=<code>` to a human name. If the param is missing,
+  // duplicated (string[]), or doesn't match an active doc type (stale URL,
+  // typo), show no banner.
+  const sp = await searchParams;
+  const uploadedRaw = sp.uploaded;
+  const uploadedCode = typeof uploadedRaw === "string" ? uploadedRaw : null;
+  const uploadedDocType = uploadedCode
+    ? (docTypes.find((t) => t.code === uploadedCode) ?? null)
+    : null;
+
   return (
     <section className="flex flex-col gap-6">
+      {uploadedDocType ? (
+        <UploadedBanner docTypeName={uploadedDocType.name} />
+      ) : null}
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-navy">Your documents</h1>

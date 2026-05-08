@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatAuDate } from "@/lib/date";
 import { createClient } from "@/lib/supabase/server";
 import {
   PROFILE_PREFERRED_ROLE_LABELS,
@@ -72,16 +73,7 @@ function booleanDisplay(v: boolean | null | undefined) {
 
 function dateDisplay(v: string | null | undefined) {
   if (!v) return <NotProvided />;
-  // Stored as ISO date "YYYY-MM-DD" — render as local-readable form.
-  try {
-    return new Date(v + "T00:00:00").toLocaleDateString("en-AU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch {
-    return v;
-  }
+  return formatAuDate(v);
 }
 
 function arrayDisplay(
